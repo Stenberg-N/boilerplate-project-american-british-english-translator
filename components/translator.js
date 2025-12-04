@@ -8,7 +8,7 @@ const britishToAmericanSpelling = Object.fromEntries(
 );
 
 const britishToAmericanTitles = Object.fromEntries(
-  Object.entries(americanToBritishTitles).map(([am, br]) => [br, am + '.'])
+  Object.entries(americanToBritishTitles).map(([key, value]) => [value.toLowerCase(), key.toLowerCase().replace(/\.$/, '')])
 );
 
 class Translator {
@@ -25,7 +25,7 @@ class Translator {
         ...americanToBritishSpelling,
         ...americanOnly,
         ...Object.fromEntries(
-          Object.entries(americanToBritishTitles).map(([key, value]) => [key.toLowerCase(), value.toLowerCase()])
+          Object.entries(americanToBritishTitles).map(([key, value]) => [value.toLowerCase(), key.toLowerCase().replace(/\.$/, '')])
         )
       };
       timeRegex = /(\d{1,2}):(\d{2})(?=\D|$)/g;
@@ -34,9 +34,7 @@ class Translator {
       dict = {
         ...britishToAmericanSpelling,
         ...britishOnly,
-        ...Object.fromEntries(
-          Object.entries(britishToAmericanTitles).map(([key, value]) => [key.toLowerCase(), value.toLowerCase()])
-        )
+        ...britishToAmericanTitles
       };
       timeRegex = /(\d{1,2}).(\d{2})(?=\D|$)/g;
       timeReplacement = '$1:$2';
@@ -45,8 +43,16 @@ class Translator {
     const keys = Object.keys(dict).sort((a, b) => b.length - a.length);
 
     for (const key of keys) {
+      const isTitle = ['mr', 'mrs', 'ms', 'mx', 'dr', 'prof'].includes(key);
+
       const keyEscaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`\\b${keyEscaped}\\b`, 'gi');
+      let pattern;
+      if (locale === 'american-to-british' && isTitle) {
+        pattern = `\\b(${keyEscaped})\\.?`;
+      } else {
+        pattern = `\\b${keyEscaped}\\b`;
+      }
+      const regex = new RegExp(pattern, 'gi');
 
       if (regex.test(translated)) hasTranslation = true;
 
@@ -54,20 +60,24 @@ class Translator {
         let replacement = dict[key];
 
         if (match[0] == match[0].toUpperCase()) {
-          replacement = replacement.chartAt(0).toUpperCase() + replacement.slice(1);
+          replacement = replacement.charAt(0).toUpperCase() + replacement.slice(1);
         }
 
         if (match === match.toUpperCase()) {
           replacement = replacement.toUpperCase();
         }
 
-        return `<span class="highlight">${replacement}</span>`;
+        if (locale === 'british-to-american' && isTitle) {
+          replacement = replacement + '.';
+        }
+
+        return `<span class='highlight'>${replacement}</span>`;
       });
     }
 
     if (timeRegex.test(translated)) {
       hasTranslation = true;
-      translated = translated.replace(timeRegex, `<span class="highlight">${timeReplacement}</span>`);
+      translated = translated.replace(timeRegex, `<span class='highlight'>${timeReplacement}</span>`);
     }
 
     if (!hasTranslation) {
